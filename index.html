@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>코주부클래스 환불 신청</title>
   <style>
-    :root{ --bg:#0b0b0c; --card:#121214; --ink:#e5e7eb; --muted:#9ca3af; --line:#23252c; --accent:#e11d2a; --link:#93c5fd; --ok:#10b981; }
+    :root{ --bg:#0b0b0c; --card:#121214; --ink:#e5e7eb; --muted:#9ca3af; --line:#23252c; --accent:#e11d2a; --ok:#10b981 }
     *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial}
     .wrap{max-width:1000px;margin:0 auto;padding:20px}
     header{display:grid;grid-template-columns:1fr auto auto;gap:10px;align-items:center;margin-bottom:12px}
@@ -37,33 +37,24 @@
 </div>
 
 <script type="module">
-  const API_BASE = 'https://script.google.com/macros/s/AKfycbxPGVD9o6N3iKz6p82OjDQNISJTyLLzLpFUAu7SrZrO5VDNSdRq0qecsLO2of1EfBYc_w/exec';
+  // ★ Apps Script "웹 앱" URL로 교체
+  const API_BASE = 'https://script.google.com/macros/s/AKfycbxOmv74sBPpzlF5QGG2PuXDDGPKMGzYZLC9iIguTmk6YbxdAMPuFw8mgNka4h-My1i5dw/exec';
 
   const $=(s,h=document)=>h.querySelector(s); const $$=(s,h=document)=>Array.from(h.querySelectorAll(s));
   const toast=m=>{const t=document.createElement('div');t.textContent=m;Object.assign(t.style,{position:'fixed',bottom:'16px',left:'50%',transform:'translateX(-50%)',background:'#1f2937',color:'#e5e7eb',border:'1px solid #374151',padding:'10px 14px',borderRadius:'10px',zIndex:9999});document.body.appendChild(t);setTimeout(()=>t.remove(),1800)};
   const params=()=>new URLSearchParams(location.hash.split('?')[1]||'');
   const digits=s=>String(s||'').replace(/\D/g,'');
-
+  const get=(route,q={})=>fetch(`${API_BASE}?${new URLSearchParams({route,...q, _:Date.now()})}`,{cache:'no-store'}).then(r=>r.json());
+  const post=(route,b={})=>fetch(`${API_BASE}?route=${encodeURIComponent(route)}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)}).then(r=>r.json());
   function setActive(){ const h=location.hash||'#/apply'; for(const id of['nav-apply','nav-status']) $('#'+id).removeAttribute('aria-current'); if(h.startsWith('#/apply')) $('#nav-apply').setAttribute('aria-current','page'); if(h.startsWith('#/status')) $('#nav-status').setAttribute('aria-current','page'); }
   function nav(){ const base=(location.hash||'#/apply').split('?')[0]; setActive(); ({'#/apply':renderApply,'#/status':renderStatus,'#/admin':renderAdmin}[base]||renderApply)(); }
   addEventListener('hashchange', nav); $('#adminBtn').addEventListener('click',()=> location.hash='#/admin');
 
-  async function apiGet(route, q={}){
-    const qs=new URLSearchParams({route,...q, _:Date.now()}).toString();
-    const r=await fetch(`${API_BASE}?${qs}`, { cache:'no-store' });
-    return r.json();
-  }
-  async function apiPost(route, b={}){
-    const r=await fetch(`${API_BASE}?route=${encodeURIComponent(route)}`, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(b)});
-    return r.json();
-  }
-
-  // ----- Apply -----
+  // ----- APPLY -----
   async function renderApply(){
-    let cfg = { courses:['부업 입문 강의','부동산 기초','AI 디자인 마스터'], reasons:['일정 변경/개인 사유','콘텐츠 불만족','중복 결제','결제 오류','기타(직접 입력)'], policy:'<p>환불 규정 예시입니다. 관리자에서 수정하세요.</p>' };
-    try{ const c=await apiGet('config_public'); if(c.ok) cfg=c; }catch{}
-
-    $('#view').innerHTML = `
+    let cfg={courses:['부업 입문 강의','부동산 기초','AI 디자인 마스터'],reasons:['일정 변경/개인 사유','콘텐츠 불만족','중복 결제','결제 오류','기타(직접 입력)'],policy:'<p>환불 규정 예시입니다. 관리자에서 수정하세요.</p>'};
+    try{const c=await get('config_public'); if(c.ok) cfg=c;}catch{}
+    $('#view').innerHTML=`
       <section class="card grid">
         <div><h2 style="margin:0 0 6px">코주부클래스 환불 신청</h2><p class="hint">제출 즉시 <b>승인 대기</b> 상태가 됩니다. 제출 후 자동으로 승인확인 화면으로 이동합니다.</p></div>
         <div class="grid g2">
@@ -81,42 +72,29 @@
         <div><details><summary>환불 규정 확인하기</summary><div style="margin-top:10px">${cfg.policy}</div></details></div>
         <div class="row"><button id="submit">환불 신청서 제출</button></div>
       </section>`;
-
-    $('#reason').addEventListener('change', e=> $('#reasonOtherWrap').style.display = e.target.value.includes('기타') ? 'block':'none');
-
+    $('#reason').addEventListener('change',e=> $('#reasonOtherWrap').style.display=e.target.value.includes('기타')?'block':'none');
     $('#submit').addEventListener('click', async ()=>{
-      const payload = {
-        course: $('#course').value.trim(),
-        pay: $('#pay').value,
-        name: $('#name').value.trim(),
-        phone: $('#phone').value,
-        reason: $('#reason').value,
-        reasonOther: $('#reasonOther').value.trim()
-      };
+      const payload={course:$('#course').value.trim(),pay:$('#pay').value,name:$('#name').value.trim(),phone:$('#phone').value,reason:$('#reason').value,reasonOther:$('#reasonOther').value.trim()};
       if(!payload.course) return toast('강의를 선택해 주세요');
       if(!payload.name) return toast('이름을 입력해 주세요');
-      if(digits(payload.phone).length < 10) return toast('전화번호를 정확히 입력해 주세요');
-
-      $('#submit').disabled = true;
+      if(digits(payload.phone).length<10) return toast('전화번호를 정확히 입력해 주세요');
+      $('#submit').disabled=true;
       try{
-        const res = await apiPost('apply', payload);
-        if(!res.ok) throw new Error(res.error||'apply_failed');
-        sessionStorage.setItem('lastCheck', JSON.stringify({
-          course: payload.course, pay: payload.pay, name: payload.name, phone: payload.phone
-        }));
-        sessionStorage.setItem('dup', res.duplicate ? '1' : '0');
-        location.hash = '#/status';
-      }catch(e){ console.error(e); toast('제출 중 오류가 발생했습니다'); }
-      finally{ $('#submit').disabled = false; }
+        const r=await post('apply',payload);
+        if(!r.ok) throw new Error(r.error||'apply_failed');
+        sessionStorage.setItem('lastCheck',JSON.stringify({course:payload.course,pay:payload.pay,name:payload.name,phone:payload.phone}));
+        sessionStorage.setItem('dup',r.duplicate?'1':'0');
+        location.hash='#/status';
+      }catch(e){console.error(e);toast('제출 중 오류가 발생했습니다');}
+      finally{$('#submit').disabled=false;}
     });
   }
 
-  // ----- Status -----
+  // ----- STATUS -----
   async function renderStatus(){
     let courses=['부업 입문 강의','부동산 기초','AI 디자인 마스터'];
-    try{ const c=await apiGet('config_public'); if(c.ok) courses=c.courses; }catch{}
-
-    $('#view').innerHTML = `
+    try{const c=await get('config_public'); if(c.ok) courses=c.courses;}catch{}
+    $('#view').innerHTML=`
       <section class="card grid">
         <h2 style="margin:0">승인 상태 확인</h2>
         <div id="dupMsg" class="hint" style="display:none">동일 정보의 기존 신청이 있어 <b>기존 건</b>으로 조회합니다.</div>
@@ -131,65 +109,56 @@
         <div class="row"><button id="checkBtn">상태 조회</button></div>
         <div id="result" class="grid"></div>
       </section>`;
-
     async function doCheck(){
-      const q = {
-        course: $('#s_course').value.trim(),
-        pay: $('#s_pay').value,
-        name: $('#s_name').value.trim(),
-        phone: digits($('#s_phone').value)
-      };
-      if(!q.course || !q.name || !q.phone){ $('#result').innerHTML='<p class="hint">모든 값을 입력하세요.</p>'; return; }
+      const q={course:$('#s_course').value.trim(),pay:$('#s_pay').value,name:$('#s_name').value.trim(),phone:digits($('#s_phone').value)};
+      if(!q.course||!q.name||!q.phone){$('#result').innerHTML='<p class="hint">모든 값을 입력하세요.</p>';return;}
       $('#result').innerHTML='<p class="hint">조회 중...</p>';
       try{
-        const r = await apiGet('status', q);
-        if(!r.ok){ $('#result').innerHTML='<p class="err">신청 내역을 찾을 수 없습니다.</p>'; return; }
-        const badge = r.status==='승인완료' ? '<span class="badge" style="border-color:#14532d;color:#86efac">승인 완료</span>' : '<span class="badge">승인 대기</span>';
-        let html = `<div class="row"><div>상태</div><div class="right">${badge}</div></div>`;
+        const r=await get('status',q);
+        if(!r.ok){$('#result').innerHTML='<p class="err">신청 내역을 찾을 수 없습니다.</p>';return;}
+        const badge=r.status==='승인완료'?'<span class="badge" style="border-color:#14532d;color:#86efac">승인 완료</span>':'<span class="badge">승인 대기</span>';
+        let html=`<div class="row"><div>상태</div><div class="right">${badge}</div></div>`;
         if(r.status==='승인완료'){
-          html += r.receiptUrl ? `<p>환불 영수증: <a href="${r.receiptUrl}" target="_blank" rel="noopener">열기</a></p>` : `<p class="hint">영수증 링크 준비 중입니다.</p>`;
-        } else {
-          html += `<p class="hint">관리자 승인 후 다시 확인해 주세요.</p>`;
-        }
-        $('#result').innerHTML = html;
-      }catch(e){ console.error(e); $('#result').innerHTML='<p class="err">오류가 발생했습니다.</p>'; }
+          html+=r.receiptUrl?`<p>환불 영수증: <a href="${r.receiptUrl}" target="_blank" rel="noopener">열기</a></p>`:`<p class="hint">영수증 링크 준비 중입니다.</p>`;
+        }else{ html+=`<p class="hint">관리자 승인 후 다시 확인해 주세요.</p>`; }
+        $('#result').innerHTML=html;
+      }catch(e){console.error(e);$('#result').innerHTML='<p class="err">오류가 발생했습니다.</p>';}
     }
-    $('#checkBtn').addEventListener('click', doCheck);
-
-    const last = sessionStorage.getItem('lastCheck');
-    if (last){
-      const v = JSON.parse(last);
-      $('#s_course').value = v.course||''; $('#s_pay').value = (v.pay==='cash'?'cash':'card');
-      $('#s_name').value = v.name||''; $('#s_phone').value = v.phone||'';
-      if (sessionStorage.getItem('dup')==='1') $('#dupMsg').style.display='block';
-      doCheck();
-      sessionStorage.removeItem('lastCheck'); sessionStorage.removeItem('dup');
+    $('#checkBtn').addEventListener('click',doCheck);
+    const last=sessionStorage.getItem('lastCheck');
+    if(last){
+      const v=JSON.parse(last);
+      $('#s_course').value=v.course||''; $('#s_pay').value=(v.pay==='cash'?'cash':'card'); $('#s_name').value=v.name||''; $('#s_phone').value=v.phone||'';
+      if(sessionStorage.getItem('dup')==='1') $('#dupMsg').style.display='block';
+      doCheck(); sessionStorage.removeItem('lastCheck'); sessionStorage.removeItem('dup');
     }
   }
 
-  // ----- Admin -----
+  // ----- ADMIN (버전 폴링으로 거의 실시간) -----
   async function renderAdmin(){
-    const urlKey = params().get('key'); if(urlKey){ localStorage.setItem('admin_key', urlKey); history.replaceState({}, '', location.pathname + '#/admin'); }
-    let key = localStorage.getItem('admin_key')||'';
+    const urlKey=params().get('key'); if(urlKey){localStorage.setItem('admin_key',urlKey); history.replaceState({},'',location.pathname+'#/admin');}
+    let key=localStorage.getItem('admin_key')||'';
     if(!key){
-      $('#view').innerHTML = `<section class="card grid"><h2 style="margin:0">관리자</h2><p class="hint">관리자 키를 입력하세요.</p><div class="row"><input id="adminkey" placeholder="관리자 키"/><button id="saveKey">입력</button></div></section>`;
-      $('#saveKey').addEventListener('click', ()=>{ const k=$('#adminkey').value.trim(); if(!k) return toast('키를 입력하세요'); localStorage.setItem('admin_key',k); nav(); });
+      $('#view').innerHTML=`<section class="card grid"><h2 style="margin:0">관리자</h2><p class="hint">관리자 키를 입력하세요.</p><div class="row"><input id="adminkey" placeholder="관리자 키"/><button id="saveKey">입력</button></div></section>`;
+      $('#saveKey').addEventListener('click',()=>{const k=$('#adminkey').value.trim(); if(!k) return toast('키를 입력하세요'); localStorage.setItem('admin_key',k); nav();});
       return;
     }
-
-    $('#view').innerHTML = `
+    $('#view').innerHTML=`
       <section class="card grid" style="gap:18px">
-        <div class="row"><h2 style="margin:0">관리자</h2><span class="right"><button class="secondary" id="changeKey">키 변경</button><button class="secondary" id="refresh">새로고침</button></span></div>
+        <div class="row"><h2 style="margin:0">관리자</h2><span class="right"><button class="secondary" id="initSheet">시트 초기화</button><button class="secondary" id="changeKey">키 변경</button><button class="secondary" id="refresh">새로고침</button></span></div>
         <div class="grid" id="cfg"></div>
         <div class="grid" id="list"></div>
       </section>`;
-    $('#changeKey').addEventListener('click',()=>{ localStorage.removeItem('admin_key'); nav(); });
+    $('#changeKey').addEventListener('click',()=>{localStorage.removeItem('admin_key'); nav();});
+    $('#initSheet').addEventListener('click', async()=>{ const r=await post('init',{key}); toast(r.ok?'초기화 완료':'초기화 실패'); if(r.ok){drawConfig(); loadList(true);} });
+
+    let offset=0, limit=100, currentVer=0, verTimer=null;
 
     async function drawConfig(){
       try{
-        const c = await apiGet('config_get', { key });
+        const c=await get('config_get',{key});
         if(!c.ok) throw new Error(c.error||'config_get_failed');
-        $('#cfg').innerHTML = `
+        $('#cfg').innerHTML=`
           <h3 style="margin:0">설정</h3>
           <div class="grid g2">
             <div>
@@ -206,36 +175,35 @@
               <div id="reasonList" class="grid" style="margin-top:8px"></div>
             </div>
           </div>`;
-
         const courses=[...(c.courses||[])], reasons=[...(c.reasons||[])];
-        const drawCourses=()=>{ const w=$('#courseList'); w.innerHTML=''; courses.forEach((v,i)=>{ const d=document.createElement('div'); d.className='row'; d.innerHTML=`<span class="badge mono" style="flex:1">${v}</span><button class="secondary" data-i="${i}">삭제</button>`; w.appendChild(d); }); $$('#courseList button').forEach(b=>b.addEventListener('click',e=>{ courses.splice(+e.currentTarget.dataset.i,1); drawCourses(); })); };
-        const drawReasons=()=>{ const w=$('#reasonList'); w.innerHTML=''; reasons.forEach((v,i)=>{ const d=document.createElement('div'); d.className='row'; d.innerHTML=`<span class="badge mono" style="flex:1">${v}</span><button class="secondary" data-i="${i}">삭제</button>`; w.appendChild(d); }); $$('#reasonList button').forEach(b=>b.addEventListener('click',e=>{ reasons.splice(+e.currentTarget.dataset.i,1); drawReasons(); })); };
-        drawCourses(); drawReasons(); $('#policyEdit').value = c.policy||'';
-
-        $('#addCourse').addEventListener('click',()=>{ const v=$('#newCourse').value.trim(); if(!v) return; courses.push(v); $('#newCourse').value=''; drawCourses(); });
-        $('#saveCourses').addEventListener('click', async()=>{ const r = await apiPost('config_save', { key, courses }); if (!r.ok) return toast('오류: '+(r.error||'config_save')); toast('저장됨'); drawConfig(); });
-
-        $('#addReason').addEventListener('click',()=>{ const v=$('#newReason').value.trim(); if(!v) return; reasons.push(v); $('#newReason').value=''; drawReasons(); });
-        $('#saveReasons').addEventListener('click', async()=>{ const r = await apiPost('config_save', { key, reasons }); if (!r.ok) return toast('오류: '+(r.error||'config_save')); toast('저장됨'); drawConfig(); });
-
-        $('#savePolicy').addEventListener('click', async()=>{ const r = await apiPost('config_save', { key, policy: $('#policyEdit').value }); if (!r.ok) return toast('오류: '+(r.error||'config_save')); toast('저장됨'); drawConfig(); });
-      }catch(e){ console.error(e); $('#cfg').innerHTML='<p class="err">설정을 불러오지 못했습니다.</p>'; }
+        const draw=(id,arr)=>{ const w=$(id); w.innerHTML=''; arr.forEach((v,i)=>{const d=document.createElement('div'); d.className='row'; d.innerHTML=`<span class="badge mono" style="flex:1">${v}</span><button class="secondary" data-i="${i}">삭제</button>`; w.appendChild(d);}); $$(id+' button').forEach(b=>b.onclick=e=>{arr.splice(+e.target.dataset.i,1); draw(id,arr);}); };
+        draw('#courseList',courses); draw('#reasonList',reasons); $('#policyEdit').value=c.policy||'';
+        $('#addCourse').onclick=()=>{const v=$('#newCourse').value.trim(); if(!v) return; courses.push(v); $('#newCourse').value=''; draw('#courseList',courses);};
+        $('#saveCourses').onclick=async()=>{const r=await post('config_save',{key,courses}); toast(r.ok?'저장됨':'오류');};
+        $('#addReason').onclick=()=>{const v=$('#newReason').value.trim(); if(!v) return; reasons.push(v); $('#newReason').value=''; draw('#reasonList',reasons);};
+        $('#saveReasons').onclick=async()=>{const r=await post('config_save',{key,reasons}); toast(r.ok?'저장됨':'오류');};
+        $('#savePolicy').onclick=async()=>{const r=await post('config_save',{key,policy:$('#policyEdit').value}); toast(r.ok?'저장됨':'오류');};
+      }catch(e){console.error(e); $('#cfg').innerHTML='<p class="err">설정을 불러오지 못했습니다.</p>';}
     }
 
-    async function loadList(){
+    async function loadList(reset=false){
+      if(reset) offset=0;
       try{
-        const r = await apiGet('admin_list', { key });
+        const r=await get('admin_list',{key,offset,limit});
         if(!r.ok) throw new Error('list_failed');
-        $('#list').innerHTML = `
-          <h3 style="margin:0">신청자 목록</h3>
-          <div class="card" style="background:#0e0f12">
-            <table class="table"><thead><tr><th>행</th><th>강의</th><th>이름</th><th>전화</th><th>결제</th><th>사유</th><th>상태</th><th>영수증</th><th>저장</th></tr></thead><tbody id="tbody"></tbody></table>
-          </div>`;
-        const body = $('#tbody'); body.innerHTML='';
-        for (const it of r.items){
-          const tr = document.createElement('tr');
-          const reasonText = it.reason ? (it.reasonOther ? `${it.reason} - ${it.reasonOther}` : it.reason) : '';
-          tr.innerHTML = `
+        if(offset===0){
+          $('#list').innerHTML=`
+            <h3 style="margin:0">신청자 목록</h3>
+            <div class="card" style="background:#0e0f12">
+              <table class="table"><thead><tr><th>행</th><th>강의</th><th>이름</th><th>전화</th><th>결제</th><th>사유</th><th>상태</th><th>영수증</th><th>저장</th></tr></thead><tbody id="tbody"></tbody></table>
+            </div>
+            <div class="row"><button class="secondary" id="moreBtn" style="width:100%">더 보기</button></div>`;
+        }
+        const body=$('#tbody');
+        for(const it of r.items){
+          const tr=document.createElement('tr');
+          const reasonText=it.reason?(it.reasonOther?`${it.reason} - ${it.reasonOther}`:it.reason):'';
+          tr.innerHTML=`
             <td class="mono">${it.row}</td>
             <td>${it.course||''}</td>
             <td>${it.name||''}</td>
@@ -245,25 +213,35 @@
             <td><select data-k="status"><option value="승인중" ${it.status==='승인중'?'selected':''}>승인중</option><option value="승인완료" ${it.status==='승인완료'?'selected':''}>승인완료</option></select></td>
             <td style="min-width:220px"><input data-k="receiptUrl" placeholder="https://..." value="${it.receiptUrl||''}"/></td>
             <td><button class="secondary" data-act="save">저장</button></td>`;
-          tr.dataset.row = it.row;
-          body.appendChild(tr);
+          tr.dataset.row=it.row; body.appendChild(tr);
         }
-        $$('#tbody button[data-act="save"]').forEach(btn=> btn.addEventListener('click', async e=>{
-          const tr = e.target.closest('tr');
-          const row = Number(tr.dataset.row);
-          const status = $('select[data-k="status"]', tr).value;
-          const receiptUrl = $('input[data-k="receiptUrl"]', tr).value.trim();
-          const res = await apiPost('admin_update', { key, row, status, receiptUrl });
-          toast(res.ok?'저장되었습니다':'오류');
-          if (res.ok) loadList();
-        }));
-      }catch(e){ console.error(e); $('#list').innerHTML='<p class="err">목록을 불러오지 못했습니다.</p>'; }
+        $$('#tbody button[data-act="save"]').forEach(btn=>btn.onclick=async e=>{
+          const tr=e.target.closest('tr'); const row=Number(tr.dataset.row);
+          const status=$('select[data-k="status"]',tr).value; const receiptUrl=$('input[data-k="receiptUrl"]',tr).value.trim();
+          const res=await post('admin_update',{key,row,status,receiptUrl}); toast(res.ok?'저장되었습니다':'오류'); if(res.ok) loadList(true);
+        });
+        const moreBtn=$('#moreBtn');
+        if(moreBtn){ if(r.hasMore){ moreBtn.style.display='block'; moreBtn.onclick=()=>{offset+=limit; loadList(false);} } else { moreBtn.style.display='none'; } }
+      }catch(e){console.error(e); $('#list').innerHTML='<p class="err">목록을 불러오지 못했습니다.</p>';}
     }
-    $('#refresh').addEventListener('click', ()=>{ drawConfig(); loadList(); });
-    drawConfig(); loadList();
+
+    // ver 폴링(4초마다): 바뀌면 설정/목록 재조회
+    async function watchVer(){
+      try{
+        const r=await get('version');
+        if(r.ok){
+          if(currentVer===0){ currentVer=r.ver||1; }
+          else if(r.ver!==currentVer){ currentVer=r.ver; await drawConfig(); await loadList(true); }
+        }
+      }catch{}
+    }
+
+    $('#refresh').addEventListener('click',()=>{ drawConfig(); loadList(true); });
+    await drawConfig(); await loadList(true);
+    verTimer = setInterval(watchVer, 4000);
   }
 
-  if (!location.hash) location.hash = '#/apply';
+  if(!location.hash) location.hash='#/apply';
   nav();
 </script>
 </body>

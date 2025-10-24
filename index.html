@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>코주부클래스 환불 신청</title>
+  <style>
+    :root{ --bg:#0b0b0c; --card:#121214; --ink:#e5e7eb; --muted:#9ca3af; --line:#23252c; --accent:#e11d2a; --link:#93c5fd; --ok:#10b981; }
+    *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial}
+    .wrap{max-width:1000px;margin:0 auto;padding:20px}
+    header{display:grid;grid-template-columns:1fr auto auto;gap:10px;align-items:center;margin-bottom:12px}
+    .brand{display:flex;gap:10px;align-items:center}
+    .pill{padding:6px 10px;border:1px solid var(--line);border-radius:999px;color:var(--muted);font-size:12px}
+    nav{display:flex;gap:8px} nav a{padding:8px 12px;border:1px solid var(--line);border-radius:10px;color:var(--ink);text-decoration:none}
+    nav a[aria-current="page"]{background:var(--card)}
+    .icon-btn{display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:12px;border:1px solid var(--line);background:#121214;cursor:pointer}
+    .icon-btn svg{width:20px;height:20px;fill:currentColor;color:var(--ink)}
+    .card{background:#121214;border:1px solid var(--line);border-radius:16px;padding:18px}
+    .grid{display:grid;gap:16px} .g2{grid-template-columns:1fr 1fr} .row{display:flex;gap:12px;align-items:center}
+    label{display:block;margin-bottom:6px;color:var(--muted);font-size:13px}
+    input,select,textarea{width:100%;background:#0e0f12;color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:12px;font-size:14px}
+    textarea{min-height:120px;resize:vertical} button{background:var(--accent);color:#fff;border:none;border-radius:12px;padding:10px 14px;font-weight:700;cursor:pointer}
+    button.secondary{background:transparent;border:1px solid var(--line)} .hint{font-size:12px;color:var(--muted)} .mono{font-family:ui-monospace,Menlo,Consolas,monospace}
+    .table{width:100%;border-collapse:collapse} .table th,.table td{border-bottom:1px solid var(--line);padding:10px;vertical-align:top}
+    .badge{display:inline-block;padding:4px 8px;border-radius:999px;border:1px solid var(--line);font-size:12px;color:var(--muted)} .right{margin-left:auto}
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand"><div class="pill">코주부클래스</div><h1 style="margin:0;font-size:20px">환불 시스템</h1></div>
+    <nav><a href="#/apply" id="nav-apply">신청</a><a href="#/status" id="nav-status">승인확인</a></nav>
+    <button id="adminBtn" class="icon-btn" title="관리자"><svg viewBox="0 0 24 24"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Zm8.94-2.88-.94-.54c.05-.35.08-.71.08-1.08s-.03-.73-.08-1.08l.94-.54a.75.75 0 0 0 .27-1.02l-1-1.73a.75.75 0 0 0-1.01-.27l-.94.54a7.77 7.77 0 0 0-1.87-1.08l-.14-1.09A.75.75 0 0 0 14.5 2h-2a.75.75 0 0 0-.74.64l-.14 1.09c-.68.26-1.31.62-1.87 1.08l-.94-.54a.75.75 0 0 0-1.01.27l-1 1.73a.75.75 0 0 0 .27 1.02l.94.54c-.05.35-.08.71-.08 1.08s.03.73.08 1.08l-.94.54a.75.75 0 0 0-.27 1.02l1 1.73c.21.36.66.48 1.01.27l.94-.54c.56.46 1.19.82 1.87 1.08l.14 1.09c.05.37.37.64.74.64h2c.37 0 .68-.27.74-.64l.14-1.09c.68-.26 1.31-.62 1.87-1.08l.94.54c.36.21.8.09 1.01-.27l1-1.73a.75.75 0 0 0-.27-1.02Z"/></svg></button>
+  </header>
+  <main id="view"></main>
+</div>
+
+<script type="module">
+  // 여기에 Apps Script '웹 앱 배포' 주소를 넣으세요 (반드시 /exec 포함)
+  const API_BASE = 'https://script.google.com/macros/s/AKfycbyDO9isAScCIKnh6RnuEpVNRLCpXPfXuVW2NU9A5nixgmPjNxvrd8FgBo985ZC6Ejnuqg/exec';
+
+  const $=(s,h=document)=>h.querySelector(s); const $$=(s,h=document)=>Array.from(h.querySelectorAll(s));
+  const toast=m=>{const t=document.createElement('div');t.textContent=m;Object.assign(t.style,{position:'fixed',bottom:'16px',left:'50%',transform:'translateX(-50%)',background:'#1f2937',color:'#e5e7eb',border:'1px solid #374151',padding:'10px 14px',borderRadius:'10px',zIndex:9999});document.body.appendChild(t);setTimeout(()=>t.remove(),1500)};
+  const params=()=>new URLSearchParams(location.hash.split('?')[1]||'');
+  const digits=s=>String(s||'').replace(/\D/g,'');
+
+  function setActive(){ const h=location.hash||'#/apply'; for(const id of['nav-apply','nav-status']) $('#'+id).removeAttribute('aria-current'); if(h.startsWith('#/apply')) $('#nav-apply').setAttribute('aria-current','page'); if(h.startsWith('#/status')) $('#nav-status').setAttribute('aria-current','page'); }
+  function nav(){ const base=(location.hash||'#/apply').split('?')[0]; setActive(); ({'#/apply':renderApply,'#/status':renderStatus,'#/admin':renderAdmin}[base]||renderApply)(); }
+  addEventListener('hashchange', nav); $('#adminBtn').addEventListener('click',()=> location.hash='#/admin');
+
+  async function apiGet(route, q={}){
+    const qs=new URLSearchParams({route,...q, _:Date.now()}).toString(); // no-cache
+    const r=await fetch(`${API_BASE}?${qs}`, { cache:'no-store' });
+    return r.json();
+  }
+  async function apiPost(route, b={}){
+    const r=await fetch(`${API_BASE}?route=${encodeURIComponent(route)}`, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(b)});
+    return r.json();
+  }
+
+  // ----- Apply -----
+  async function renderApply(){
+    // 공개 설정(없으면 기본값 사용)
+    let cfg = { courses:['부업 입문 강의','부동산 기초','AI 디자인 마스터'], reasons:['일정 변경/개인 사유','콘텐츠 불만족','중복 결제','결제 오류','기타(직접 입력)'], policy:'<p>환불 규정 예시입니다. 관리자에서 수정하세요.</p>' };
+    try{ const c=await apiGet('config_public'); if(c.ok) cfg=c; }catch{}
+
+    $('#view').innerHTML = `
+      <section class="card grid">
+        <div><h2 style="margin:0 0 6px">코주부클래스 환불 신청</h2><p class="hint">제출 즉시 <b>승인 대기</b> 상태가 됩니다. 제출 후 자동으로 승인확인 화면으로 이동합니다.</p></div>
+        <div class="grid g2">
+          <div><label>수강 중인 강의</label><select id="course">${cfg.courses.map(c=>`<option>${c}</option>`).join('')}</select></div>
+          <div><label>결제 수단</label><select id="pay"><option value="card">카드결제</option><option value="cash">현금결제</option></select></div>
+        </div>
+        <div class="grid g2">
+          <div><label>이름</label><input id="name" placeholder="홍길동" /></div>
+          <div><label>전화번호</label><input id="phone" placeholder="010-1234-5678" inputmode="numeric" /></div>
+        </div>
+        <div class="grid">
+          <div><label>환불 사유</label><select id="reason">${cfg.reasons.map(r=>`<option>${r}</option>`).join('')}</select></div>
+          <div id="reasonOtherWrap" style="display:none"><label>기타 사유 상세</label><textarea id="reasonOther" placeholder="상세 사유를 작성해 주세요"></textarea></div>
+        </div>
+        <div><details><summary>환불 규정 확인하기</summary><div style="margin-top:10px">${cfg.policy}</div></details></div>
+        <div class="row"><button id="submit">환불 신청서 제출</button></div>
+      </section>`;
+
+    $('#reason').addEventListener('change', e=> $('#reasonOtherWrap').style.display = e.target.value.includes('기타') ? 'block':'none');
+
+    $('#submit').addEventListener('click', async ()=>{
+      const payload = {
+        course: $('#course').value.trim(),
+        pay: $('#pay').value,          // 'card'|'cash' → 서버가 한글로 정규화
+        name: $('#name').value.trim(),
+        phone: $('#phone').value,
+        reason: $('#reason').value,
+        reasonOther: $('#reasonOther').value.trim()
+      };
+      if(!payload.course) return toast('강의를 선택해 주세요');
+      if(!payload.name) return toast('이름을 입력해 주세요');
+      if(digits(payload.phone).length < 10) return toast('전화번호를 정확히 입력해 주세요');
+
+      $('#submit').disabled = true;
+      try{
+        const res = await apiPost('apply', payload);
+        if(!res.ok) throw new Error(res.error||'apply_failed');
+        // 제출 직후 상태조회로 자동 이동 (4개 값 저장) + 중복 안내 플래그
+        sessionStorage.setItem('lastCheck', JSON.stringify({
+          course: payload.course, pay: payload.pay, name: payload.name, phone: payload.phone
+        }));
+        sessionStorage.setItem('dup', res.duplicate ? '1' : '0');
+        location.hash = '#/status';
+      }catch(e){ console.error(e); toast('제출 중 오류가 발생했습니다'); }
+      finally{ $('#submit').disabled = false; }
+    });
+  }
+
+  // ----- Status (4값 조회) -----
+  async function renderStatus(){
+    // 공개 설정으로 강의 드롭다운 구성
+    let courses=['부업 입문 강의','부동산 기초','AI 디자인 마스터'];
+    try{ const c=await apiGet('config_public'); if(c.ok) courses=c.courses; }catch{}
+
+    $('#view').innerHTML = `
+      <section class="card grid">
+        <h2 style="margin:0">승인 상태 확인</h2>
+        <div id="dupMsg" class="hint" style="display:none">동일 정보의 기존 신청이 있어 <b>기존 건</b>으로 조회합니다.</div>
+        <div class="grid g2">
+          <div><label>수강 중인 강의</label><select id="s_course">${courses.map(c=>`<option>${c}</option>`).join('')}</select></div>
+          <div><label>결제 수단</label><select id="s_pay"><option value="card">카드결제</option><option value="cash">현금결제</option></select></div>
+        </div>
+        <div class="grid g2">
+          <div><label>이름</label><input id="s_name" placeholder="홍길동" /></div>
+          <div><label>전화번호</label><input id="s_phone" placeholder="010-1234-5678" inputmode="numeric" /></div>
+        </div>
+        <div class="row"><button id="checkBtn">상태 조회</button></div>
+        <div id="result" class="grid"></div>
+      </section>`;
+
+    async function doCheck(){
+      const q = {
+        course: $('#s_course').value.trim(),
+        pay: $('#s_pay').value,
+        name: $('#s_name').value.trim(),
+        phone: digits($('#s_phone').value)
+      };
+      if(!q.course || !q.name || !q.phone){ $('#result').innerHTML='<p class="hint">모든 값을 입력하세요.</p>'; return; }
+      $('#result').innerHTML='<p class="hint">조회 중...</p>';
+      try{
+        const r = await apiGet('status', q);
+        if(!r.ok){ $('#result').innerHTML='<p class="err">신청 내역을 찾을 수 없습니다.</p>'; return; }
+        const badge = r.status==='승인완료' ? '<span class="badge" style="border-color:#14532d;color:#86efac">승인 완료</span>' : '<span class="badge">승인 대기</span>';
+        let html = `<div class="row"><div>상태</div><div class="right">${badge}</div></div>`;
+        if(r.status==='승인완료'){
+          html += r.receiptUrl ? `<p>환불 영수증: <a href="${r.receiptUrl}" target="_blank" rel="noopener">열기</a></p>` : `<p class="hint">영수증 링크 준비 중입니다.</p>`;
+        } else {
+          html += `<p class="hint">관리자 승인 후 다시 확인해 주세요.</p>`;
+        }
+        $('#result').innerHTML = html;
+      }catch(e){ console.error(e); $('#result').innerHTML='<p class="err">오류가 발생했습니다.</p>'; }
+    }
+    $('#checkBtn').addEventListener('click', doCheck);
+
+    // 제출 직후 자동 조회 + 중복 안내
+    const last = sessionStorage.getItem('lastCheck');
+    if (last){
+      const v = JSON.parse(last);
+      $('#s_course').value = v.course||''; $('#s_pay').value = (v.pay==='cash'?'cash':'card');
+      $('#s_name').value = v.name||''; $('#s_phone').value = v.phone||'';
+      if (sessionStorage.getItem('dup')==='1') $('#dupMsg').style.display='block';
+      doCheck();
+      sessionStorage.removeItem('lastCheck'); sessionStorage.removeItem('dup');
+    }
+  }
+
+  // ----- Admin (키 입력 → 설정/목록 관리) -----
+  async function renderAdmin(){
+    const urlKey = params().get('key'); if(urlKey){ localStorage.setItem('admin_key', urlKey); history.replaceState({}, '', location.pathname + '#/admin'); }
+    let key = localStorage.getItem('admin_key')||'';
+    if(!key){
+      $('#view').innerHTML = `<section class="card grid"><h2 style="margin:0">관리자</h2><p class="hint">관리자 키를 입력하세요.</p><div class="row"><input id="adminkey" placeholder="관리자 키"/><button id="saveKey">입력</button></div></section>`;
+      $('#saveKey').addEventListener('click', ()=>{ const k=$('#adminkey').value.trim(); if(!k) return toast('키를 입력하세요'); localStorage.setItem('admin_key',k); nav(); });
+      return;
+    }
+
+    $('#view').innerHTML = `
+      <section class="card grid" style="gap:18px">
+        <div class="row"><h2 style="margin:0">관리자</h2><span class="right"><button class="secondary" id="changeKey">키 변경</button><button class="secondary" id="refresh">새로고침</button></span></div>
+        <div class="grid" id="cfg"></div>
+        <div class="grid" id="list"></div>
+      </section>`;
+    $('#changeKey').addEventListener('click',()=>{ localStorage.removeItem('admin_key'); nav(); });
+
+    // 설정 로드
+    try{
+      const c = await apiGet('config_get', { key });
+      if(!c.ok) throw new Error('config_get_failed');
+      $('#cfg').innerHTML = `
+        <h3 style="margin:0">설정</h3>
+        <div class="grid g2">
+          <div>
+            <h4 style="margin:0 0 6px">강의 목록</h4>
+            <div class="row"><input id="newCourse" placeholder="강의 추가" /><button id="addCourse">추가</button><button class="secondary" id="saveCourses">저장</button></div>
+            <div id="courseList" class="grid" style="margin-top:8px"></div>
+          </div>
+          <div>
+            <h4 style="margin:0 0 6px">환불 규정</h4>
+            <textarea id="policyEdit" placeholder="HTML 가능"></textarea>
+            <div class="row"><button id="savePolicy">규정 저장</button></div>
+            <h4 style="margin:12px 0 6px">환불 사유</h4>
+            <div class="row"><input id="newReason" placeholder="사유 추가" /><button id="addReason">추가</button><button class="secondary" id="saveReasons">저장</button></div>
+            <div id="reasonList" class="grid" style="margin-top:8px"></div>
+          </div>
+        </div>`;
+
+      const courses=[...(c.courses||[])], reasons=[...(c.reasons||[])];
+      const drawCourses=()=>{ const w=$('#courseList'); w.innerHTML=''; courses.forEach((v,i)=>{ const d=document.createElement('div'); d.className='row'; d.innerHTML=`<span class="badge mono" style="flex:1">${v}</span><button class="secondary" data-i="${i}">삭제</button>`; w.appendChild(d); }); $$('#courseList button').forEach(b=>b.addEventListener('click',e=>{ courses.splice(+e.currentTarget.dataset.i,1); drawCourses(); })); };
+      const drawReasons=()=>{ const w=$('#reasonList'); w.innerHTML=''; reasons.forEach((v,i)=>{ const d=document.createElement('div'); d.className='row'; d.innerHTML=`<span class="badge mono" style="flex:1">${v}</span><button class="secondary" data-i="${i}">삭제</button>`; w.appendChild(d); }); $$('#reasonList button').forEach(b=>b.addEventListener('click',e=>{ reasons.splice(+e.currentTarget.dataset.i,1); drawReasons(); })); };
+      drawCourses(); drawReasons(); $('#policyEdit').value = c.policy||'';
+
+      $('#addCourse').addEventListener('click',()=>{ const v=$('#newCourse').value.trim(); if(!v) return; courses.push(v); $('#newCourse').value=''; drawCourses(); });
+      $('#saveCourses').addEventListener('click', async()=>{ const r = await apiPost('config_save', { key, courses }); toast(r.ok?'저장됨':'오류'); });
+
+      $('#addReason').addEventListener('click',()=>{ const v=$('#newReason').value.trim(); if(!v) return; reasons.push(v); $('#newReason').value=''; drawReasons(); });
+      $('#saveReasons').addEventListener('click', async()=>{ const r = await apiPost('config_save', { key, reasons }); toast(r.ok?'저장됨':'오류'); });
+
+      $('#savePolicy').addEventListener('click', async()=>{ const r = await apiPost('config_save', { key, policy: $('#policyEdit').value }); toast(r.ok?'저장됨':'오류'); });
+    }catch(e){ console.error(e); $('#cfg').innerHTML='<p class="err">설정을 불러오지 못했습니다.</p>'; }
+
+    // 목록 로드
+    async function loadList(){
+      try{
+        const r = await apiGet('admin_list', { key });
+        if(!r.ok) throw new Error('list_failed');
+        $('#list').innerHTML = `
+          <h3 style="margin:0">신청자 목록</h3>
+          <div class="card" style="background:#0e0f12">
+            <table class="table"><thead><tr><th>행</th><th>강의</th><th>이름</th><th>전화</th><th>결제</th><th>사유</th><th>상태</th><th>영수증</th><th>저장</th></tr></thead><tbody id="tbody"></tbody></table>
+          </div>`;
+        const body = $('#tbody'); body.innerHTML='';
+        for (const it of r.items){
+          const tr = document.createElement('tr');
+          const reasonText = it.reason ? (it.reasonOther ? `${it.reason} - ${it.reasonOther}` : it.reason) : '';
+          tr.innerHTML = `
+            <td class="mono">${it.row}</td>
+            <td>${it.course||''}</td>
+            <td>${it.name||''}</td>
+            <td class="mono">${it.phone||''}</td>
+            <td>${it.pay||''}</td>
+            <td style="max-width:240px">${reasonText}</td>
+            <td><select data-k="status"><option value="승인중" ${it.status==='승인중'?'selected':''}>승인중</option><option value="승인완료" ${it.status==='승인완료'?'selected':''}>승인완료</option></select></td>
+            <td style="min-width:220px"><input data-k="receiptUrl" placeholder="https://..." value="${it.receiptUrl||''}"/></td>
+            <td><button class="secondary" data-act="save">저장</button></td>`;
+          tr.dataset.row = it.row;
+          body.appendChild(tr);
+        }
+        $$('#tbody button[data-act="save"]').forEach(btn=> btn.addEventListener('click', async e=>{
+          const tr = e.target.closest('tr');
+          const row = Number(tr.dataset.row);
+          const status = $('select[data-k="status"]', tr).value;
+          const receiptUrl = $('input[data-k="receiptUrl"]', tr).value.trim();
+          const res = await apiPost('admin_update', { key, row, status, receiptUrl });
+          toast(res.ok?'저장되었습니다':'오류');
+        }));
+      }catch(e){ console.error(e); $('#list').innerHTML='<p class="err">목록을 불러오지 못했습니다.</p>'; }
+    }
+    $('#refresh').addEventListener('click', loadList); loadList();
+  }
+
+  // 초기 진입
+  if (!location.hash) location.hash = '#/apply';
+  nav();
+</script>
+</body>
+</html>
